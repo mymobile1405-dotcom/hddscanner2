@@ -17,9 +17,27 @@ jobs:
           cache-disabled: true
       - name: Unzip project
         run: unzip -q HddScanner2.zip
-      - name: Build
+      - name: Guard - file list must match
+        run: |
+          cd HddScanner2
+          find app/src -type f | sort > /tmp/actual.txt
+          diff EXPECTED_FILES.txt /tmp/actual.txt
+      - name: Unit tests
+        id: tests
+        continue-on-error: true
+        run: cd HddScanner2 && gradle testDebugUnitTest --no-daemon
+      - name: Build APK
         run: cd HddScanner2 && gradle assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: HddScanner2-apk
           path: HddScanner2/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-report
+          path: HddScanner2/app/build/reports/tests/
+          if-no-files-found: ignore
+      - name: Fail if tests failed
+        if: steps.tests.outcome == 'failure'
+        run: echo "UNIT TESTS FAILED" && exit 1
